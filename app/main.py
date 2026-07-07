@@ -1,8 +1,8 @@
 """FastAPI 앱 엔트리포인트
 
-- POST /api/events    : Jetson Nano가 위험 이벤트를 업로드
-- GET  /api/risk-cells: 격자 셀별 누적 집계 반환 (프론트 지도가 이걸 fetch)
-- GET  /             : 데모용 프론트엔드(risk_map.html) 서빙
+- POST /api/events        : Jetson Nano가 위험 이벤트를 업로드
+- GET  /api/risk-segments : 도로 구간별 누적 집계 반환 (프론트 지도가 이걸 fetch)
+- GET  /                 : 데모용 프론트엔드(risk_map.html) 서빙
 """
 from pathlib import Path
 
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.database import Base, engine, get_db
-from app.schemas import EventCreate, EventOut, RiskCell
+from app.schemas import EventCreate, EventOut, RiskSegment
 
 # 앱 시작 시 테이블이 없으면 생성 (데모 단계라 별도 마이그레이션 도구 없이 단순하게)
 Base.metadata.create_all(bind=engine)
@@ -47,7 +47,7 @@ def upload_event(event: EventCreate, db: Session = Depends(get_db)):
     return db_event
 
 
-@app.get("/api/risk-cells", response_model=list[RiskCell])
-def read_risk_cells(db: Session = Depends(get_db)):
-    """격자 셀 단위로 누적 집계된 위험도를 반환 (웹 지도가 색칠할 때 사용)"""
-    return crud.get_risk_cells(db)
+@app.get("/api/risk-segments", response_model=list[RiskSegment])
+def read_risk_segments(db: Session = Depends(get_db)):
+    """도로 구간 단위로 누적 집계된 위험도를 반환 (웹 지도가 색칠할 때 사용)"""
+    return crud.get_risk_segments(db)

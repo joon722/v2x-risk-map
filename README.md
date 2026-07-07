@@ -2,8 +2,10 @@
 
 Jetson Nano가 도로변 인프라 역할을 하며 차량/지팡이의 GPS·IMU 데이터로
 거리·TTC를 계산해 위험 등급(RISK 0~3)을 산출하고, 이 이벤트를 클라우드
-서버에 업로드하면 서버가 격자(셀) 단위로 누적 집계해서 웹 지도에 색으로
-표시하는 데모 프로젝트입니다. 실시간 지도가 아니라 **누적 통계 지도**입니다.
+서버에 업로드하면 서버가 실제 도로 구간 단위로 누적 집계해서 웹 지도 위
+도로를 따라 색으로 표시하는 데모 프로젝트입니다. 격자가 아니라 OSM에서
+받아온 실제 도로망에 이벤트를 스냅해서 건물 위에 칠해지는 일이 없도록
+했습니다. 실시간 지도가 아니라 **누적 통계 지도**입니다.
 
 ## 폴더 구조
 
@@ -14,8 +16,10 @@ map/
 │   ├── database.py   # SQLAlchemy 엔진/세션 (SQLite)
 │   ├── models.py      # Event ORM 모델
 │   ├── schemas.py     # Pydantic 요청/응답 스키마
-│   ├── crud.py        # 이벤트 저장 + 격자 집계 로직
-│   └── config.py      # CELL_SIZE, 기본 중심좌표 등 상수
+│   ├── crud.py        # 이벤트 저장 + 도로 구간 집계 로직
+│   ├── roads.py        # OSM 도로망 로드 + 좌표를 가장 가까운 도로 구간에 스냅
+│   ├── config.py       # 기본 중심좌표 등 상수
+│   └── data/roads.json  # Overpass API로 미리 받아둔 숭실대 주변 도로망
 ├── static/
 │   └── risk_map.html  # 프론트엔드 (Leaflet + fetch)
 ├── seed.py                  # Jetson 업로드를 흉내내는 시더 스크립트 (가짜 데이터)
@@ -47,7 +51,7 @@ http://localhost:8000
 ```
 
 시더를 실행하면 숭실대학교 부근 핫스팟 3곳에 위험 이벤트가 채워지고,
-브라우저에서 격자가 위험 등급별로 색칠된 것을 볼 수 있습니다.
+브라우저에서 실제 도로가 위험 등급별로 색칠된 것을 볼 수 있습니다.
 
 ## API 명세
 
@@ -81,17 +85,16 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
 }
 ```
 
-### `GET /api/risk-cells`
+### `GET /api/risk-segments`
 
-전체 이벤트를 격자 셀(`CELL_SIZE`, 기본 0.0003도 ≈ 33m) 단위로 묶어
-누적 집계한 결과를 반환합니다.
+전체 이벤트를 가장 가까운 도로 구간(엣지)에 스냅해서 누적 집계한
+결과를 반환합니다.
 
 **응답 (200)**
 ```json
 [
   {
-    "lat": 37.4955,
-    "lng": 126.9573,
+    "points": [[37.4956, 126.9573], [37.4958, 126.9575]],
     "grade": 3,
     "events": 12,
     "avg": 2.83,
@@ -99,20 +102,26 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
   }
 ]
 ```
-- `lat`, `lng`: 셀의 남서쪽(좌하단) 좌표. 프론트는 여기서 `CELL_SIZE`만큼
-  더한 사각형을 그림
-- `grade`: 셀 내 이벤트들의 평균 위험도를 반올림해 0~3으로 고정한 값 (지도 색상 기준)
-- `events`: 셀에 누적된 이벤트 건수
+- `points`: 도로 구간 양 끝점 좌표. 프론트는 이 점들을 이어 폴리라인을 그림
+- `grade`: 구간 내 이벤트들의 평균 위험도를 반올림해 0~3으로 고정한 값 (지도 색상 기준)
+- `events`: 구간에 누적된 이벤트 건수
 - `avg`: 반올림 전 평균 위험도
 - `ttc`: 평균 TTC (초)
 
-## 격자/등급 로직
+## 도로 스냅/등급 로직
 
-- `app/config.py`의 `CELL_SIZE`로 좌표를 격자에 매핑 (`floor(lat/CELL_SIZE)*CELL_SIZE`)
-- `static/risk_map.html`의 `CELL_SIZE` 상수는 반드시 서버와 같은 값으로 맞춰야
-  셀 사각형이 정확한 위치에 그려짐
-- 데모 단계라 `GET /api/risk-cells` 호출 시점에 Python에서 집계함
-  (이벤트가 아주 많아지면 SQL `GROUP BY`나 별도 집계 테이블로 옮기는 걸 권장)
+- `app/data/roads.json`은 Overpass API(OpenStreetMap)로 숭실대 주변
+  `highway=*` 도로망을 미리 받아둔 파일. 각 도로(way)를 인접한 두 점씩
+  잘라 "엣지" 단위로 취급함
+- `app/roads.py`의 `nearest_edge_id()`가 이벤트 좌표에서 가장 가까운
+  엣지를 점-선분 최단거리로 찾아줌 (위경도를 로컬 평면 좌표로 근사
+  변환해서 계산)
+- 데모 단계라 `GET /api/risk-segments` 호출 시점에 Python에서 집계함
+  (이벤트가 아주 많아지면 공간 인덱스(R-tree)나 SQL 쪽으로 옮기는 걸 권장)
+- 다른 지역으로 옮기려면 `app/config.py`의 `DEFAULT_CENTER_LAT/LNG`를
+  바꾸고, Overpass API로 그 지역 도로망을 다시 받아 `app/data/roads.json`을
+  교체하면 됨 (`curl -X POST https://overpass-api.de/api/interpreter
+  --data-urlencode 'data=[out:json];way["highway"](남,서,북,동);out geom;'`)
 
 ## DB 교체
 
@@ -145,7 +154,7 @@ Postgres 등 다른 DB 커넥션 문자열로 바꾸면 됩니다. SQLite 전용
    python import_sumo_results.py sumo_risk.csv --url https://your-server-url
    ```
 
-3. 브라우저를 새로고침하면 새로 업로드된 이벤트가 격자 집계에 반영된다.
+3. 브라우저를 새로고침하면 새로 업로드된 이벤트가 도로 구간 집계에 반영된다.
 
 ## 팀원 접근 방법
 
@@ -178,6 +187,6 @@ uvicorn app.main:app --reload
 
 1. `uvicorn app.main:app --reload` 실행 후 콘솔에 에러 없이 뜨는지 확인
 2. `python seed.py` 실행 후 "완료: N건 업로드 성공, 0건 실패" 출력 확인
-3. 브라우저에서 `http://localhost:8000` 접속 → 숭실대학교 부근에
-   색칠된 격자가 여러 개 보이는지 확인
-4. 격자를 클릭했을 때 좌하단에 상세 카드(등급/건수/평균 위험도/평균 TTC)가 뜨는지 확인
+3. 브라우저에서 `http://localhost:8000` 접속 → 숭실대학교 주변 도로가
+   위험 등급별로 색칠된 게 보이는지 확인 (건물 위가 아니라 도로 위에만 칠해져야 함)
+4. 도로 구간을 클릭했을 때 좌하단에 상세 카드(등급/건수/평균 위험도/평균 TTC)가 뜨는지 확인

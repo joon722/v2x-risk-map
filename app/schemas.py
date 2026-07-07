@@ -29,12 +29,11 @@ class EventOut(BaseModel):
         from_attributes = True
 
 
-class RiskCell(BaseModel):
-    """GET /api/risk-cells 응답 항목 (격자 셀 하나의 누적 집계)"""
+class RiskSegment(BaseModel):
+    """GET /api/risk-segments 응답 항목 (도로 구간 하나의 누적 집계)"""
 
-    lat: float  # 셀의 좌하단(남서쪽) 위도
-    lng: float  # 셀의 좌하단(남서쪽) 경도
-    grade: int  # 셀의 누적 위험 등급 0~3 (평균 risk를 반올림)
-    events: int  # 셀 안에 누적된 이벤트 건수
+    points: list[list[float]]  # 도로 구간 양 끝점 [[lat, lng], [lat, lng]]
+    grade: int  # 구간의 누적 위험 등급 0~3 (평균 risk를 반올림)
+    events: int  # 구간에 누적된 이벤트 건수
     avg: float  # 평균 위험도 (반올림 전 원본 값)
     ttc: Optional[float]  # 평균 TTC (초)

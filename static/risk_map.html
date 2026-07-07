@@ -87,7 +87,7 @@
 
 <div id="detail-card">
   <span class="close-btn" onclick="hideDetailCard()">&times;</span>
-  <h4>격자 상세 정보</h4>
+  <h4>도로 구간 상세 정보</h4>
   <div class="row"><span>누적 등급</span><span id="d-grade">-</span></div>
   <div class="row"><span>이벤트 건수</span><span id="d-events">-</span></div>
   <div class="row"><span>평균 위험도</span><span id="d-avg">-</span></div>
@@ -96,12 +96,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  // ------------------------------------------------------------------
-  // 격자 셀 크기 (도 단위). 서버 app/config.py의 CELL_SIZE와 반드시 같아야
-  // 셀 사각형이 API가 계산한 위치와 정확히 겹쳐 그려짐.
-  // ------------------------------------------------------------------
-  const CELL_SIZE = 0.0003;
-
   // 데모 기본 중심 좌표 (숭실대학교) - 서버 config.py의 DEFAULT_CENTER와 동일
   const DEFAULT_CENTER = [37.4956, 126.9573];
 
@@ -116,15 +110,15 @@
     attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
-  const cellLayer = L.layerGroup().addTo(map);
+  const segmentLayer = L.layerGroup().addTo(map);
 
-  function showDetailCard(cell) {
+  function showDetailCard(segment) {
     document.getElementById("d-grade").textContent =
-      `${cell.grade} (${GRADE_LABELS[cell.grade]})`;
-    document.getElementById("d-events").textContent = `${cell.events}건`;
-    document.getElementById("d-avg").textContent = cell.avg;
+      `${segment.grade} (${GRADE_LABELS[segment.grade]})`;
+    document.getElementById("d-events").textContent = `${segment.events}건`;
+    document.getElementById("d-avg").textContent = segment.avg;
     document.getElementById("d-ttc").textContent =
-      cell.ttc !== null && cell.ttc !== undefined ? `${cell.ttc}s` : "-";
+      segment.ttc !== null && segment.ttc !== undefined ? `${segment.ttc}s` : "-";
     document.getElementById("detail-card").style.display = "block";
   }
 
@@ -132,41 +126,36 @@
     document.getElementById("detail-card").style.display = "none";
   }
 
-  function renderCells(cells) {
-    cellLayer.clearLayers();
+  function renderSegments(segments) {
+    segmentLayer.clearLayers();
 
-    cells.forEach((cell) => {
-      const bounds = [
-        [cell.lat, cell.lng],
-        [cell.lat + CELL_SIZE, cell.lng + CELL_SIZE],
-      ];
-
-      const rect = L.rectangle(bounds, {
-        color: GRADE_COLORS[cell.grade],
-        weight: 1,
-        fillColor: GRADE_COLORS[cell.grade],
-        fillOpacity: 0.55,
+    segments.forEach((segment) => {
+      const line = L.polyline(segment.points, {
+        color: GRADE_COLORS[segment.grade],
+        weight: 7,
+        opacity: 0.8,
+        lineCap: "round",
       });
 
-      rect.on("click", () => showDetailCard(cell));
-      rect.addTo(cellLayer);
+      line.on("click", () => showDetailCard(segment));
+      line.addTo(segmentLayer);
     });
   }
 
-  async function loadRiskCells() {
+  async function loadRiskSegments() {
     const banner = document.getElementById("status-banner");
     try {
-      const res = await fetch("/api/risk-cells");
+      const res = await fetch("/api/risk-segments");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const cells = await res.json();
+      const segments = await res.json();
 
-      if (cells.length === 0) {
+      if (segments.length === 0) {
         banner.textContent = "누적된 위험 이벤트가 아직 없습니다. seed.py를 실행해보세요.";
         return;
       }
 
-      renderCells(cells);
-      banner.textContent = `격자 ${cells.length}개 표시 중`;
+      renderSegments(segments);
+      banner.textContent = `도로 구간 ${segments.length}개 표시 중`;
       setTimeout(() => (banner.style.display = "none"), 2000);
     } catch (err) {
       banner.textContent = "데이터를 불러오지 못했습니다. 서버가 켜져 있는지 확인하세요.";
@@ -174,7 +163,7 @@
     }
   }
 
-  loadRiskCells();
+  loadRiskSegments();
 </script>
 
 </body>
