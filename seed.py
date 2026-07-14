@@ -24,15 +24,15 @@ def parse_args():
     )
     return parser.parse_args()
 
-# app/config.py의 DEFAULT_CENTER_LAT/LNG와 동일 (숭실대학교)
-CENTER_LAT, CENTER_LNG = 37.4956, 126.9573
+# app/config.py의 DEFAULT_CENTER_LAT/LNG와 동일 (상도동)
+CENTER_LAT, CENTER_LNG = 37.4997, 126.9516
 
 # 핫스팟별로 위험도 편향(risk_bias)과 이벤트 개수를 다르게 줘서
-# 지도에 등급이 섞인 격자들이 보이도록 구성 (캠퍼스 규모라 오프셋을 도시 블록보다 좁게 잡음)
+# 지도에 등급이 섞인 격자들이 보이도록 구성 (동네 골목 규모라 오프셋을 좁게 잡음)
 HOTSPOTS = [
-    {"lat": CENTER_LAT, "lng": CENTER_LNG, "count": 40, "risk_bias": 3},  # 정문 교차로 - 매우 위험
-    {"lat": CENTER_LAT + 0.0012, "lng": CENTER_LNG + 0.0008, "count": 25, "risk_bias": 2},  # 캠퍼스 내부 도로 - 위험
-    {"lat": CENTER_LAT - 0.0008, "lng": CENTER_LNG - 0.0012, "count": 15, "risk_bias": 1},  # 후문 방향 - 주의 구간
+    {"lat": CENTER_LAT, "lng": CENTER_LNG, "count": 40, "risk_bias": 3},  # 주요 교차로 - 매우 위험
+    {"lat": CENTER_LAT + 0.0012, "lng": CENTER_LNG + 0.0008, "count": 25, "risk_bias": 2},  # 골목길 - 위험
+    {"lat": CENTER_LAT - 0.0008, "lng": CENTER_LNG - 0.0012, "count": 15, "risk_bias": 1},  # 주변부 - 주의 구간
 ]
 
 

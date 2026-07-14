@@ -19,7 +19,7 @@ map/
 │   ├── crud.py        # 이벤트 저장 + 도로 구간 집계 로직
 │   ├── roads.py        # OSM 도로망 로드 + 좌표를 가장 가까운 도로 구간에 스냅
 │   ├── config.py       # 기본 중심좌표 등 상수
-│   └── data/roads.json  # Overpass API로 미리 받아둔 숭실대 주변 도로망
+│   └── data/roads.json  # Overpass API로 미리 받아둔 대상 지역 도로망
 ├── static/
 │   └── risk_map.html  # 프론트엔드 (Leaflet + fetch)
 ├── seed.py                  # Jetson 업로드를 흉내내는 시더 스크립트 (가짜 데이터)
@@ -50,7 +50,7 @@ python seed.py
 http://localhost:8000
 ```
 
-시더를 실행하면 숭실대학교 부근 핫스팟 3곳에 위험 이벤트가 채워지고,
+시더를 실행하면 상도동 부근 핫스팟 3곳에 위험 이벤트가 채워지고,
 브라우저에서 실제 도로가 위험 등급별로 색칠된 것을 볼 수 있습니다.
 
 ## API 명세
@@ -62,8 +62,8 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
 **요청 바디**
 ```json
 {
-  "lat": 37.4956,
-  "lng": 126.9573,
+  "lat": 37.4997,
+  "lng": 126.9516,
   "risk": 3,
   "ttc": 0.8,
   "timestamp": "2026-07-04T10:00:00"
@@ -77,8 +77,8 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
 ```json
 {
   "id": 1,
-  "lat": 37.4956,
-  "lng": 126.9573,
+  "lat": 37.4997,
+  "lng": 126.9516,
   "risk": 3,
   "ttc": 0.8,
   "timestamp": "2026-07-04T10:00:00"
@@ -94,7 +94,7 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
 ```json
 [
   {
-    "points": [[37.4956, 126.9573], [37.4958, 126.9575]],
+    "points": [[37.4997, 126.9516], [37.4999, 126.9518]],
     "grade": 3,
     "events": 12,
     "avg": 2.83,
@@ -110,7 +110,7 @@ Jetson Nano가 계산한 위험 이벤트 1건을 업로드합니다.
 
 ## 도로 스냅/등급 로직
 
-- `app/data/roads.json`은 Overpass API(OpenStreetMap)로 숭실대 주변
+- `app/data/roads.json`은 Overpass API(OpenStreetMap)로 대상 지역
   `highway=*` 도로망을 미리 받아둔 파일. 각 도로(way)를 인접한 두 점씩
   잘라 "엣지" 단위로 취급함
 - `app/roads.py`의 `nearest_edge_id()`가 이벤트 좌표에서 가장 가까운
@@ -140,7 +140,7 @@ Postgres 등 다른 DB 커넥션 문자열로 바꾸면 됩니다. SQLite 전용
 
    ```csv
    lat,lng,risk,ttc,timestamp
-   37.4956,126.9573,3,0.8,2026-07-04T10:00:00
+   37.4997,126.9516,3,0.8,2026-07-04T10:00:00
    ```
    - `lat`, `lng`, `risk`는 필수. `ttc`, `timestamp`는 선택(비워도 됨)
    - SUMO 내부 좌표(x,y)만 있다면, `net.xml`의 좌표계 정보로
@@ -187,6 +187,6 @@ uvicorn app.main:app --reload
 
 1. `uvicorn app.main:app --reload` 실행 후 콘솔에 에러 없이 뜨는지 확인
 2. `python seed.py` 실행 후 "완료: N건 업로드 성공, 0건 실패" 출력 확인
-3. 브라우저에서 `http://localhost:8000` 접속 → 숭실대학교 주변 도로가
+3. 브라우저에서 `http://localhost:8000` 접속 → 상도동 주변 도로가
    위험 등급별로 색칠된 게 보이는지 확인 (건물 위가 아니라 도로 위에만 칠해져야 함)
 4. 도로 구간을 클릭했을 때 좌하단에 상세 카드(등급/건수/평균 위험도/평균 TTC)가 뜨는지 확인
